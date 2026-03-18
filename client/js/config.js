@@ -4,7 +4,7 @@
 
 const CONFIG = {
     // API 服务器地址
-    API_BASE_URL: 'http://localhost:3001/api',
+    API_BASE_URL: 'https://my-knowledge-web-production.up.railway.app/api',
     
     // 应用名称
     APP_NAME: '🌸 个人知识库',
