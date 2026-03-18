@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🏡 梦幻别墅：拼图蓝图</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f0fdf4;
+            --primary: #ec4899;
+            --accent: #8b5cf6;
+            --tile-size: 42px; /* 棋子大小 */
+            --gap: 4px;
+            --blueprint-bg: #e0f2fe; /* 蓝图纸色 */
+            --blueprint-line: #bae6fd;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'ZCOOL XiaoWei', 'Nunito', sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: row; /* 默认横向布局 */
+            overflow: hidden;
+            color: #333;
+        }
+
+        /* --- 左侧：游戏操作区 (40%) --- */
+        .game-panel {
+            flex: 0 0 45%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            background: #fff;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.05);
+            z-index: 20;
+        }
+
+        /* 顶部状态栏 */
+        .status-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 0 10px;
+        }
+
+        .coin-display {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 18px;
+            border: 2px solid #fde68a;
+            display: flex; align-items: center; gap: 5px;
+        }
+
+        /* 棋盘 */
+        .board-container {
+            background: #fce7f3;
+            padding: 8px;
+            border-radius: 16px;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .grid-board {
+            display: grid;
+            grid-template-columns: repeat(7, var(--tile-size));
+            grid-template-rows: repeat(7, var(--tile-size));
+            gap: var(--gap);
+        }
+
+        .tile {
+            width: var(--tile-size); height: var(--tile-size);
+            background: white; border-radius: 8px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 24px; cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            box-shadow: 0 3px 0 rgba(0,0,0,0.1);
+        }
+        .tile.selected { background-color: #bbf7d0; transform: scale(1.1); z-index: 10; box-shadow: 0 0 8px #86efac; }
+        .tile.matched { animation: popOut 0.3s forwards; }
+        @keyframes popOut { to { transform: scale(0); opacity: 0; } }
+
+        /* 刷新按钮 */
+        .refresh-btn {
+            margin-top: 15px;
+            background: #3b82f6; color: white; border: none;
+            padding: 8px 20px; border-radius: 20px;
+            font-family: inherit; font-weight: bold;
+            box-shadow: 0 4px 0 #2563eb; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .refresh-btn:active { transform: translateY(4px); box-shadow: none; }
+        .refresh-btn.attention { background: #ef4444; animation: pulse 1s infinite; box-shadow: 0 4px 0 #b91c1c;}
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+
+        /* --- 右侧：拼图蓝图区 (60%) --- */
+        .blueprint-panel {
+            flex: 1;
+            position: relative;
+            background-color: var(--blueprint-bg);
+            /* 蓝图网格背景 */
+            background-image: 
+                linear-gradient(var(--blueprint-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--blueprint-line) 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 拼图容器 (保持比例) */
+        .puzzle-frame {
+            position: relative;
+            width: 90%;
+            height: 60%;
+            margin-top: 20px;
+            border: 4px dashed #93c5fd;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* 进度条 */
+        .progress-bar {
+            width: 80%;
+            height: 10px;
+            background: #fff;
+            border-radius: 10px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ec4899, #8b5cf6);
+            transition: width 0.5s ease;
+        }
+
+        /* 拼图块 (绝对定位) */
+        .puzzle-piece {
+            position: absolute;
+            transform: translate(-50%, -50%); /* 中心定位 */
+            font-size: 0; /* Emoji大小由style控制 */
+            transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            filter: grayscale(100%) opacity(0.2) drop-shadow(0 0 0 rgba(0,0,0,0));
+        }
+
+        /* 激活状态 */
+        .puzzle-piece.unlocked {
+            filter: grayscale(0%) opacity(1) drop-shadow(0 5px 10px rgba(0,0,0,0.2));
+            animation: bounceIn 0.6s;
+        }
+        @keyframes bounceIn {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        /* 商店区域 (底部悬浮) */
+        .shop-area {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 30%;
+            background: #fff;
+            border-top: 4px solid #e5e7eb;
+            padding: 10px;
+            overflow-x: auto;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+        }
+
+        .shop-card {
+            flex: 0 0 90px;
+            height: 110px;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #f9fafb;
+        }
+        .shop-card.affordable { border-color: #34d399; background: #ecfdf5; }
+        .shop-card.owned { border-color: #ec4899; opacity: 0.5; background: #fdf2f8; pointer-events: none; }
+        
+        .card-icon { font-size: 32px; margin-bottom: 5px; filter: grayscale(100%); opacity: 0.5; }
+        .shop-card.affordable .card-icon { filter: grayscale(0); opacity: 1; }
+        .shop-card.owned .card-icon { filter: grayscale(0); opacity: 1; }
+        
+        .card-name { font-size: 12px; color: #666; text-align: center; margin-bottom: 2px; }
+        .card-price { font-size: 14px; font-weight: bold; color: #d97706; }
+        .card-owned-tag { font-size: 12px; color: #ec4899; font-weight: bold; display: none; }
+        .shop-card.owned .card-price { display: none; }
+        .shop-card.owned .card-owned-tag { display: block; }
+
+        /* 响应式调整 (手机端改为上下布局) */
+        @media (max-width: 768px) {
+            body { flex-direction: column-reverse; } /* 游戏在下，图在上 */
+            .game-panel { flex: 0 0 auto; height: 55%; padding-top: 5px; }
+            .blueprint-panel { flex: 1; height: 45%; }
+            .puzzle-frame { height: 60%; margin-top: 10px; border-width: 2px; }
+            .shop-area { height: 35%; padding: 5px; }
+            .shop-card { flex: 0 0 70px; height: 90px; }
+            .card-icon { font-size: 24px; }
+            :root { --tile-size: 38px; }
+        }
+
+        /* 胜利弹窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.5s;
+        }
+        .modal-overlay.show { opacity: 1; pointer-events: all; }
+        .modal {
+            background: white; padding: 30px; border-radius: 20px;
+            text-align: center; max-width: 80%;
+            animation: bounceIn 0.5s;
+        }
+        .modal h2 { color: #ec4899; margin-top: 0; }
+        .modal-btn {
+            background: #ec4899; color: white; border: none; padding: 10px 30px;
+            font-size: 18px; border-radius: 25px; cursor: pointer; margin-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 胜利弹窗 -->
+    <div class="modal-overlay" id="victoryModal">
+        <div class="modal">
+            <h2>🎉 完美竣工！</h2>
+            <p>你已经收集了所有的家具<br>建造出了最完美的梦幻别墅！</p>
+            <div style="font-size: 60px; margin: 20px;">🏡✨</div>
+            <button class="modal-btn" onclick="location.reload()">重新建造</button>
+        </div>
+    </div>
+
+    <!-- 左侧：游戏区 -->
+    <div class="game-panel">
+        <div class="status-header">
+            <h3 style="margin:0; color: #4b5563;">🧩 收集金币</h3>
+            <div class="coin-display">💰 <span id="score">0</span></div>
+        </div>
+        
+        <div class="board-container">
+            <div class="grid-board" id="grid">
+                <!-- 棋盘生成区 -->
+            </div>
+        </div>
+
+        <button class="refresh-btn" id="refreshBtn" onclick="shuffleGrid()">
+            <span>🔄 刷新棋盘</span>
+        </button>
+    </div>
+
+    <!-- 右侧：蓝图与商店 -->
+    <div class="blueprint-panel">
+        <h3 style="margin: 10px 0 5px 0; color: #3b82f6;">📐 别墅设计蓝图</h3>
+        
+        <!-- 进度条 -->
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+        <!-- 拼图模板 (Items 这里是绝对定位) -->
+        <div class="puzzle-frame" id="puzzleArea">
+            <!-- 物品将通过JS渲染在这里 -->
+        </div>
+
+        <!-- 商店列表 -->
+        <div class="shop-area" id="shopList">
+            <!-- 商店卡片 -->
+        </div>
+    </div>
+
+    <script>
+        // --- 数据配置 ---
+        // 拼图物品配置：定义了它们在右侧蓝图框中的位置 (top%, left%) 和 Emoji
+        const puzzleData = [
+            { id: 'sky', name: '晴空', price: 100, icon: '☀️', size: '50px', top: '15%', left: '85%' },
+            { id: 'cloud', name: '白云', price: 80, icon: '☁️', size: '60px', top: '20%', left: '20%' },
+            { id: 'ground', name: '草坪', price: 150, icon: '🟩', size: '1000px', top: '120%', left: '50%' }, // 超大背景模拟草地
+            { id: 'house_body', name: '别墅主体', price: 500, icon: '🏠', size: '150px', top: '60%', left: '50%' },
+            { id: 'tree_big', name: '老橡树', price: 200, icon: '🌳', size: '90px', top: '65%', left: '15%' },
+            { id: 'tree_small', name: '小松树', price: 150, icon: '🌲', size: '70px', top: '70%', left: '85%' },
+            { id: 'fence', name: '围栏', price: 120, icon: '🚧', size: '40px', top: '85%', left: '30%' },
+            { id: 'flower', name: '花园', price: 100, icon: '🌷', size: '40px', top: '85%', left: '70%' },
+            { id: 'dog', name: '看门狗', price: 250, icon: '🐕', size: '35px', top: '80%', left: '60%' },
+            { id: 'bird', name: '小鸟', price: 100, icon: '🐦', size: '30px', top: '45%', left: '50%' }
+        ];
+
+        // 游戏引擎配置
+        const ROWS = 7;
+        const COLS = 7;
+        const TYPES = ['💎', '🌸', '🍓', '🍋', '🍪', '⭐']; // 消除元素
+        
+        let grid = [];
+        let score = 0;
+        let ownedItems = new Set(); // 已解锁的物品ID
+        let selectedTile = null;
+        let isProcessing = false;
+
+        // --- 初始化 ---
+        function init() {
+            initPuzzleBoard();
+            initShop();
+            initGrid();
+            renderGrid();
+            checkDeadlock();
+            updateUI();
+        }
+
+        // 1. 初始化拼图区域
+        function initPuzzleBoard() {
+            const container = document.getElementById('puzzleArea');
+            // 特殊处理草坪：它作为背景层，稍微调整一下z-index
+            
+            puzzleData.forEach(item => {
+                const el = document.createElement('div');
+                el.id = `puzzle-${item.id}`;
+                el.className = 'puzzle-piece';
+                el.innerText = item.icon;
+                
+                // 样式设置
+                el.style.fontSize = item.size;
+                el.style.top = item.top;
+                el.style.left = item.left;
+                
+                if (item.id === 'ground') {
+                    el.style.zIndex = -1; // 草地垫底
+                    el.style.width = '120%';
+                    el.style.height = '100px';
+                    el.style.background = '#4ade80';
+                    el.innerText = ''; // 纯色块
+                    el.style.borderRadius = '50% 50% 0 0';
+                }
+
+                container.appendChild(el);
+            });
+        }
+
+        // 2. 初始化商店
+        function initShop() {
+            const shop = document.getElementById('shopList');
+            shop.innerHTML = '';
+            
+            puzzleData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'shop-card';
+                card.id = `card-${item.id}`;
+                card.onclick = () => buyItem(item);
+                
+                card.innerHTML = `
+                    <div class="card-icon">${item.icon}</div>
+                    <div class="card-name">${item.name}</div>
+                    <div class="card-price">💰${item.price}</div>
+                    <div class="card-owned-tag">已拥有</div>
+                `;
+                shop.appendChild(card);
+            });
+        }
+
+        // --- 游戏逻辑 (消除核心) ---
+        function initGrid() {
+            grid = [];
+            for (let r = 0; r < ROWS; r++) {
+                let row = [];
+                for (let c = 0; c < COLS; c++) {
+                    let type;
+                    do {
+                        type = TYPES[Math.floor(Math.random() * TYPES.length)];
+                    } while (
+                        (c >= 2 && row[c-1] === type && row[c-2] === type) ||
+                        (r >= 2 && grid[r-1][c] === type && grid[r-2][c] === type)
+                    );
+                    row.push(type);
+                }
+                grid.push(row);
+            }
+        }
+
+        function renderGrid() {
+            const board = document.getElementById('grid');
+            board.innerHTML = '';
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+                    tile.innerText = grid[r][c];
+                    tile.dataset.r = r; tile.dataset.c = c;
+                    
+                    if (selectedTile && selectedTile.r === r && selectedTile.c === c) {
+                        tile.classList.add('selected');
+                    }
+                    tile.onclick = () => handleTileClick(r, c);
+                    board.appendChild(tile);
+                }
+            }
+        }
+
+        function handleTileClick(r, c) {
+            if (isProcessing) return;
+            if (!selectedTile) {
+                selectedTile = { r, c };
+                renderGrid();
+            } else {
+                const dist = Math.abs(selectedTile.r - r) + Math.abs(selectedTile.c - c);
+                if (dist === 1) {
+                    swapAndCheck(selectedTile, { r, c });
+                    selectedTile = null;
+                } else {
+                    selectedTile = { r, c };
+                    renderGrid();
+                }
+            }
+        }
+
+        async function swapAndCheck(pos1, pos2) {
+            isProcessing = true;
+            let temp = grid[pos1.r][pos1.c];
+            grid[pos1.r][pos1.c] = grid[pos2.r][pos2.c];
+            grid[pos2.r][pos2.c] = temp;
+            renderGrid();
+
+            const matches = findMatches();
+            if (matches.length > 0) {
+                await processMatches(matches);
+            } else {
+                await wait(200);
+                temp = grid[pos1.r][pos1.c];
+                grid[pos1.r][pos1.c] = grid[pos2.r][pos2.c];
+                grid[pos2.r][pos2.c] = temp;
+                renderGrid();
+                isProcessing = false;
+            }
+        }
+
+        function findMatches() {
+            let matchedSet = new Set();
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS - 2; c++) {
+                    let t = grid[r][c];
+                    if (t === grid[r][c+1] && t === grid[r][c+2]) {
+                        matchedSet.add(`${r},${c}`); matchedSet.add(`${r},${c+1}`); matchedSet.add(`${r},${c+2}`);
+                    }
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                for (let r = 0; r < ROWS - 2; r++) {
+                    let t = grid[r][c];
+                    if (t === grid[r+1][c] && t === grid[r+2][c]) {
+                        matchedSet.add(`${r},${c}`); matchedSet.add(`${r+1},${c}`); matchedSet.add(`${r+2},${c}`);
+                    }
+                }
+            }
+            return Array.from(matchedSet).map(s => {
+                let [r, c] = s.split(',').map(Number);
+                return {r, c};
+            });
+        }
+
+        async function processMatches(matches) {
+            // 获得金币
+            const gain = matches.length * 5;
+            score += gain;
+            updateUI();
+
+            const tiles = document.querySelectorAll('.tile');
+            matches.forEach(m => tiles[m.r * COLS + m.c].classList.add('matched'));
+            
+            await wait(300);
+
+            matches.forEach(m => grid[m.r][m.c] = null);
+            
+            // 下落填充
+            for (let c = 0; c < COLS; c++) {
+                let empty = 0;
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    if (grid[r][c] === null) empty++;
+                    else if (empty > 0) {
+                        grid[r + empty][c] = grid[r][c];
+                        grid[r][c] = null;
+                    }
+                }
+                for (let r = 0; r < empty; r++) {
+                    grid[r][c] = TYPES[Math.floor(Math.random() * TYPES.length)];
+                }
+            }
+            renderGrid();
+            await wait(250);
+            
+            const newMatches = findMatches();
+            if (newMatches.length > 0) {
+                await processMatches(newMatches);
+            } else {
+                isProcessing = false;
+                checkDeadlock();
+                updateUI(); // 再次更新商店状态
+            }
+        }
+
+        // --- 购买与拼图系统 ---
+        function buyItem(item) {
+            if (ownedItems.has(item.id)) return;
+
+            if (score >= item.price) {
+                score -= item.price;
+                ownedItems.add(item.id);
+                
+                // 1. 商店UI更新
+                updateUI();
+
+                // 2. 拼图UI更新 (核心逻辑)
+                const puzzleEl = document.getElementById(`puzzle-${item.id}`);
+                puzzleEl.classList.add('unlocked');
+
+                // 3. 检查胜利
+                checkVictory();
+            } else {
+                // 简单的抖动反馈
+                const card = document.getElementById(`card-${item.id}`);
+                card.style.transform = 'translateX(5px)';
+                setTimeout(() => card.style.transform = 'none', 100);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('score').innerText = score;
+            
+            // 进度条
+            const progress = (ownedItems.size / puzzleData.length) * 100;
+            document.getElementById('progressFill').style.width = `${progress}%`;
+
+            // 商店状态
+            puzzleData.forEach(item => {
+                const card = document.getElementById(`card-${item.id}`);
+                const isOwned = ownedItems.has(item.id);
+                
+                if (isOwned) {
+                    card.classList.add('owned');
+                    card.classList.remove('affordable');
+                } else {
+                    if (score >= item.price) {
+                        card.classList.add('affordable');
+                    } else {
+                        card.classList.remove('affordable');
+                    }
+                }
+            });
+        }
+
+        function checkVictory() {
+            if (ownedItems.size === puzzleData.length) {
+                setTimeout(() => {
+                    document.getElementById('victoryModal').classList.add('show');
+                }, 1000);
+            }
+        }
+
+        // --- 工具函数 ---
+        function shuffleGrid() {
+            if (isProcessing) return;
+            let flat = grid.flat();
+            for (let i = flat.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flat[i], flat[j]] = [flat[j], flat[i]];
+            }
+            let idx = 0;
+            for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) grid[r][c] = flat[idx++];
+            
+            selectedTile = null;
+            renderGrid();
+            
+            const m = findMatches();
+            if(m.length>0) processMatches(m);
+            else checkDeadlock();
+        }
+
+        function checkDeadlock() {
+            // 简单模拟判断是否有解 (此处略，直接用刷新按钮控制交互)
+            // 为了简化代码，这里默认始终显示刷新按钮，如果需要提示死局可参考上一版
+            // 这里我们通过UI提示来鼓励玩家点击刷新
+        }
+        
+        const wait = (ms) => new Promise(res => setTimeout(res, ms));
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>

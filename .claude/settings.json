@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 23900 //F)",
+      "Bash(explorer \"C:\\\\Users\\\\pp.song\\\\Downloads\\\\netlify-site\\\\client\\\\index.html\")",
+      "Bash(cmd.exe /c start \"\" \"C:\\\\Users\\\\pp.song\\\\Downloads\\\\netlify-site\\\\client\\\\index.html\")",
+      "Bash(cat \"/c/Users/pp.song/Downloads/netlify-site/server/sql/\"*.sql)",
+      "Bash(cat \"/c/Users/pp.song/Downloads/netlify-site/server/sql/\"*)",
+      "Bash(node -e \":*)",
+      "Bash(curl -s -X DELETE http://localhost:3001/api/categories/7fe3795a-6c31-4161-8552-9809a229a0c1)",
+      "Bash(curl -s -X DELETE http://localhost:3001/api/resource-types/da22780b-287d-44a2-b5da-824bb72799dd)",
+      "WebFetch(domain:skills.sh)",
+      "Bash(npx skills add vercel-labs/skills@find-skills -g -y)",
+      "Read(//c/Users/pp.song/.agents/skills/**)",
+      "Bash(npx skills add wshobson/agents@code-review-excellence -g -y)",
+      "Read(//c/Users/pp.song/.claude/skills//**)",
+      "Bash(curl -s http://localhost:3001/api/categories)",
+      "Bash(curl -s -X POST http://localhost:3001/api/categories -H \"Content-Type: application/json\" -d \"{\"\"name\"\":\"\"测试\"\",\"\"icon\"\":\"\"🧪\"\"}\")"
+    ]
+  }
+}
